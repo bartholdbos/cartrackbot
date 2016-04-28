@@ -7,6 +7,9 @@ import(
 	"net/http"
 )
 
+var bot golegram.Bot
+var config Configuration
+
 func handleErr(err error) {
 	log.Fatal(err)
 }
@@ -19,12 +22,41 @@ func handleUpdate(update golegram.Update) {
 	fmt.Println(update.Message.Text)
 }
 
-func main() {
-	bot, err := golegram.NewBot("147357073:AAHTaz9TsAY0SbVXAEyfuYeRJGNN2m_hwwk")
+func setupConfig() {
+	var err error
+	config, err = load_config()
 
 	if err != nil {
 		handleErr(err)
 	}
 
+	fmt.Println("Config loaded")
+}
+
+func setupBot() {
+	var err error
+	bot, err := golegram.NewBot(config.TelegramBotToken)
+
+	if err != nil {
+		handleErr(err)
+	}
+
+	fmt.Println("Bot created: " + bot.User.Username)
+}
+
+func setupWebhook() {
 	bot.AddToWebhook(handleUpdate, handlePing)
+
+	fmt.Println("Starting Webhook")
+	err := golegram.StartWebhook(config.Webhook.Port, config.Webhook.Public, config.Webhook.Private)
+
+	if err != nil {
+		handleErr(err)
+	}
+}
+
+func main() {
+	setupConfig()
+	setupBot()
+	setupWebhook()
 }
