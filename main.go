@@ -8,11 +8,31 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 var db *sql.DB
 var bot *golegram.Bot
 var config Configuration
+
+func parse(input string) (string, []string) {
+	s := strings.Split(input, " ")
+	command := strings.Split(s[0], "@")[0]
+	var args []string
+	for i := 1; i < len(s); i++ {
+		if s[i] != "" {
+			args = append(args, s[i])
+		}
+	}
+	return command, args
+}
+
+func getCar(userid int32) (car int, err error) {
+	row := db.QueryRow("SELECT `car` FROM `users` WHERE `id` = ?", userid)
+	err = row.Scan(&car)
+
+	return
+}
 
 func handleErr(err error) {
 	if err != nil {
@@ -26,18 +46,29 @@ func handlePing(out http.ResponseWriter, in *http.Request) {
 
 func handleUpdate(update golegram.Update) {
 	if update.Message.Location.Longitude == 0 && update.Message.Location.Latitude == 0 {
-		bot.SendMessage(strconv.Itoa(int(update.Message.Chat.Id)), "test", false, "")
+		command, _ := parse(update.Message.Text)
+
+		switch command {
+		case "/location":
+			car, err := getCar(update.Message.From.Id)
+			handleErr(err)
+
+			var longitude float64
+			var latitude float64
+
+			row := db.QueryRow("SELECT `longitude`, `latitude` FROM `cars` WHERE `id` = ?;", car)
+			err1 := row.Scan(&longitude, &latitude)
+			handleErr(err1)
+
+			bot.SendLocation(strconv.Itoa(int(update.Message.Chat.Id)), latitude, longitude, false, 0)
+			break
+		}
 	} else {
-		row, err := db.Query("SELECT `car` FROM `users` WHERE `id` = ?;", update.Message.Chat.Id)
+		car, err := getCar(update.Message.From.Id)
 		handleErr(err)
-		row.Next()
 
-		var car int
-		err1 := row.Scan(&car)
+		_, err1 := db.Exec("UPDATE `cars` SET `longitude`=?,`latitude`=? WHERE `id` = ?;", update.Message.Location.Longitude, update.Message.Location.Latitude, car)
 		handleErr(err1)
-
-		_, err2 := db.Query("UPDATE `cars` SET `longitude`=?,`latitude`=? WHERE `id` = ?;", update.Message.Location.Longitude, update.Message.Location.Latitude, car)
-		handleErr(err2)
 
 		bot.SendMessage(strconv.Itoa(int(update.Message.Chat.Id)), "Locatie bijgewerkt", false, "")
 	}
