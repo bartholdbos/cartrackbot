@@ -49,6 +49,11 @@ func handleUpdate(update golegram.Update) {
 		command, _ := parse(update.Message.Text)
 
 		switch command {
+		case "/start":
+			_, err := db.Exec("INSERT INTO `users` (`id`) VALUES (?);", update.Message.From.Id)
+			handleErr(err)
+
+			bot.SendMessage(strconv.Itoa(int(update.Message.Chat.Id)), "hallo", false, "")
 		case "/location":
 			car, err := getCar(update.Message.From.Id)
 			handleErr(err)
