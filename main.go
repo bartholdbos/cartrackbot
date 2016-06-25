@@ -51,29 +51,53 @@ func handleUpdate(update golegram.Update) {
 		switch command {
 		case "/start":
 			_, err := db.Exec("INSERT INTO `users` (`id`) VALUES (?);", update.Message.From.Id)
-			handleErr(err)
-
-			bot.SendMessage(strconv.Itoa(int(update.Message.Chat.Id)), "hallo", false, "")
+			if err != nil{
+				log.Printf("%s\n", err) // TODO: Return error to user
+				break
+			}
+			
+			bot.SendMessage(strconv.Itoa(int(update.Message.Chat.Id)), "The Cartrackbot", false, "")
 		case "/location":
 			car, err := getCar(update.Message.From.Id)
-			handleErr(err)
+			if err != nil {
+				log.Printf("%s\n", err) // TODO: Return error to user
+				break
+			}
+
+			if car == 0 {
+				bot.SendMessage(strconv.Itoa(int(update.Message.Chat.Id)), "Je hebt nog geen auto toegevoegd", false, "")
+				break
+			}
 
 			var longitude float64
 			var latitude float64
 
 			row := db.QueryRow("SELECT `longitude`, `latitude` FROM `cars` WHERE `id` = ?;", car)
 			err1 := row.Scan(&longitude, &latitude)
-			handleErr(err1)
+			if err1 != nil {
+				log.Printf("%s\n", err) // TODO: Return error to user
+				break
+			}
 
 			bot.SendLocation(strconv.Itoa(int(update.Message.Chat.Id)), latitude, longitude, false, 0)
-			break
 		}
 	} else {
 		car, err := getCar(update.Message.From.Id)
-		handleErr(err)
+		if err != nil {
+			log.Printf("%s\n", err) // TODO: Return error to user
+			break
+		}
+
+		if car == 0 {
+			bot.SendMessage(strconv.Itoa(int(update.Message.Chat.Id)), "Je hebt nog geen auto toegevoegd", false, "")
+			break
+		}
 
 		_, err1 := db.Exec("UPDATE `cars` SET `longitude`=?,`latitude`=? WHERE `id` = ?;", update.Message.Location.Longitude, update.Message.Location.Latitude, car)
-		handleErr(err1)
+		if err1 != nil {
+			log.Printf("%s\n", err) // TODO: Return error to user
+			break
+		}
 
 		bot.SendMessage(strconv.Itoa(int(update.Message.Chat.Id)), "Locatie bijgewerkt", false, "")
 	}
